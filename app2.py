@@ -153,7 +153,7 @@ def main():
 
     # Sidebar for user inputs
     S = st.sidebar.number_input('S (Stock Price)', value=100)
-        K = st.sidebar.number_input('K (Strike Price)', value=100)
+    K = st.sidebar.number_input('K (Strike Price)', value=100)
     r = st.sidebar.number_input('r (Risk-Free Rate)', value=0.05, step=0.01)
     T = st.sidebar.number_input('T (Time to Expiration)', value=1.0, step=0.1)
     C = st.sidebar.number_input('C (Call Option Price)', value=10.0)
