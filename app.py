@@ -169,7 +169,7 @@ def main():
     st.title("Option Pricing & Arbitrage")
     
     ticker = st.text_input("Enter Stock Ticker", "AAPL")
-    token = st.text_input("Enter Tiingo API Token", "")
+    token = st.text_input("Enter Tiingo API Token", "c8014c8227333b4647ff04d4378724f7345f3d4c")
     
     # Fetch live stock price
     if ticker and token:
