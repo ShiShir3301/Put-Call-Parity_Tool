@@ -123,7 +123,7 @@ def plot_profit(S, K, r, T, C, P):
     put_payoff = np.maximum(K - stock_prices, 0) - P
     combined_payoff = call_payoff + put_payoff + stock_prices - K * np.exp(-r * T)
 
-    plt.figure(figsize=(5, 3))
+    plt.figure(figsize=(4, 3))
     plt.plot(stock_prices, call_payoff, label="Call Payoff", linestyle="--")
     plt.plot(stock_prices, put_payoff, label="Put Payoff", linestyle="--")
     plt.plot(stock_prices, combined_payoff, label="Arbitrage Payoff", linewidth=2)
@@ -152,36 +152,40 @@ def main():
     st.title("Put-Call Parity and Arbitrage Tool")
 
     # Sidebar for user inputs
-    S = st.sidebar.number_input('S (Stock Price)', value=100)
-    K = st.sidebar.number_input('K (Strike Price)', value=100)
-    r = st.sidebar.number_input('r (Risk-Free Rate)', value=0.05, step=0.01)
-    T = st.sidebar.number_input('T (Time to Expiration)', value=1.0, step=0.1)
-    C = st.sidebar.number_input('C (Call Option Price)', value=10.0)
-    P = st.sidebar.number_input('P (Put Option Price)', value=5.0)
+    ticker = st.sidebar.text_input('Stock Ticker (e.g. AAPL, MSFT)', value='AAPL')
+    token = st.sidebar.text_input('Tiingo API Token', value='c8014c8227333b4647ff04d4378724f7345f3d4c')
 
-    volatility = st.sidebar.slider('Volatility (as a decimal)', 0.01, 1.0, 0.2, 0.01)
-    volatility_adjustment = st.sidebar.slider('Volatility Adjustment', -0.5, 0.5, 0.0, 0.01)
-
+    # Fetch live stock price based on ticker
     try:
-        # Calculate the parity and identify arbitrage
-        C, P, _ = put_call_parity(S, K, r, T, C, P)
-        arbitrage_message = identify_arbitrage(S, K, r, T, C, P)
+        if ticker:
+            live_stock_price = fetch_live_price(ticker, token)
+            st.sidebar.write(f"Live Stock Price for {ticker}: ${live_stock_price:.2f}")
+            S = live_stock_price
+    except Exception as e:
+        st.sidebar.write(f"Error fetching live price: {e}")
+        S = st.sidebar.number_input("Current Stock Price (S)", value=100.0)
 
-        # Display Arbitrage Message
-        st.subheader("Arbitrage Strategy:")
-        st.write(arbitrage_message)
+    K = st.sidebar.number_input("Strike Price (K)", value=100.0)
+    r = st.sidebar.number_input("Risk-Free Interest Rate (r)", value=0.05)
+    T = st.sidebar.number_input("Time to Maturity (T, in years)", value=1.0)
+    C = st.sidebar.number_input("Call Option Price (C)", value=10.0)
+    P = st.sidebar.number_input("Put Option Price (P)", value=10.0)
 
-        # Plot profit/loss graph
-        plot_profit(S, K, r, T, C, P)
+    # Calculate parity and identify arbitrage
+    C, P, _ = put_call_parity(S, K, r, T, C, P)
+    arbitrage_message = identify_arbitrage(S, K, r, T, C, P)
 
-        # Generate and plot volatility heatmap
-        st.subheader("Volatility Heatmap:")
-        K_values = [80, 100, 120]
-        T_values = [0.5, 1.0, 2.0, 5.0]
-        plot_volatility_heatmap(K_values, T_values, volatility, volatility_adjustment)
-        
-    except ValueError as e:
-        st.error(str(e))
+    # Display results
+    st.subheader("Arbitrage Analysis")
+    st.write(arbitrage_message)
+
+    # Plot profit/loss visualization
+    plot_profit(S, K, r, T, C, P)
+
+    # Volatility heatmap settings
+    K_values = np.linspace(K * 0.5, K * 1.5, 10)
+    T_values = np.linspace(0.1, 2, 10)
+    plot_volatility_heatmap(K_values, T_values, base_volatility=0.2, volatility_adjustment=0.1)
 
 if __name__ == "__main__":
     main()
