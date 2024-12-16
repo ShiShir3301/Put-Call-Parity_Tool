@@ -149,7 +149,7 @@ def main():
     st.title("Put-Call Parity and Arbitrage Tool")
 
     # Sidebar for user inputs
-    S = st.sidebar.number_input('S (Stock Price)', value=100)  # Default value set to 100
+    S = st.sidebar.number_input('S (Stock Price)', value=100)
     K = st.sidebar.number_input('K (Strike Price)', value=100)
     r = st.sidebar.slider('r (Interest Rate)', min_value=0.0, max_value=0.2, value=0.05, step=0.005)
     T = st.sidebar.slider('T (Time to Expiry)', min_value=0.1, max_value=5.0, value=1.0, step=0.1)
@@ -181,12 +181,17 @@ def main():
         st.subheader("Arbitrage Analysis:")
         st.write(identify_arbitrage(S, K, r, T, C if C != 0 else computed_C, P if P != 0 else computed_P))
 
-        # Plot Profit/Loss and Volatility Heatmap
-        plot_profit(S, K, r, T, computed_C, computed_P)
-        plot_volatility_heatmap([K], [T], np.array([[r]]))  # Example with simple values for demonstration
+        # Plot Profit/Loss
+        plot_profit(S, K, r, T, C if C != 0 else computed_C, P if P != 0 else computed_P)
 
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
+        # Example Volatility Heatmap (using synthetic data for demonstration)
+        K_values = np.linspace(80, 120, 5)
+        T_values = np.linspace(0.5, 2, 5)
+        volatility_matrix = np.random.rand(5, 5) * 0.5  # Synthetic volatility data
+        plot_volatility_heatmap(K_values, T_values, volatility_matrix)
+
+    except ValueError as e:
+        st.error(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
