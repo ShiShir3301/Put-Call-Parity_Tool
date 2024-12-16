@@ -1,0 +1,6 @@
+numpy
+matplotlib
+seaborn
+ipywidgets
+display
+requests
