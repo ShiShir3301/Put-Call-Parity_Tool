@@ -123,7 +123,7 @@ def plot_profit(S, K, r, T, C, P):
     put_payoff = np.maximum(K - stock_prices, 0) - P
     combined_payoff = call_payoff + put_payoff + stock_prices - K * np.exp(-r * T)
 
-    plt.figure(figsize=(5, 3))
+    plt.figure(figsize=(4, 3))
     plt.plot(stock_prices, call_payoff, label="Call Payoff", linestyle="--")
     plt.plot(stock_prices, put_payoff, label="Put Payoff", linestyle="--")
     plt.plot(stock_prices, combined_payoff, label="Arbitrage Payoff", linewidth=2)
@@ -152,12 +152,12 @@ def main():
     st.title("Put-Call Parity and Arbitrage Tool")
 
     # Sidebar for user inputs
-    S = st.sidebar.number_input('S (Stock Price)', value=100)
-    K = st.sidebar.number_input('K (Strike Price)', value=100)
-    r = st.sidebar.number_input('r (Risk-Free Rate)', value=0.05, step=0.01)
-    T = st.sidebar.number_input('T (Time to Expiration)', value=1.0, step=0.1)
-    C = st.sidebar.number_input('C (Call Option Price)', value=10.0)
-    P = st.sidebar.number_input('P (Put Option Price)', value=5.0)
+    S = st.sidebar.number_input('S (Stock Price)', value=None)
+    K = st.sidebar.number_input('K (Strike Price)', value=None)
+    r = st.sidebar.number_input('r (Risk-Free Rate)', value=None)
+    T = st.sidebar.number_input('T (Time to Expiration)', value=None)
+    C = st.sidebar.number_input('C (Call Option Price)', value=None)
+    P = st.sidebar.number_input('P (Put Option Price)', value=None)
 
     volatility = st.sidebar.slider('Volatility (as a decimal)', 0.01, 1.0, 0.2, 0.01)
     volatility_adjustment = st.sidebar.slider('Volatility Adjustment', -0.5, 0.5, 0.0, 0.01)
