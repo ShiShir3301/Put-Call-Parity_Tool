@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 import requests
+import pandas as pd
 
 # Function to calculate values based on Put-Call Parity
 def put_call_parity(S, K, r, T, C=None, P=None):
@@ -116,33 +117,25 @@ def fetch_live_price(ticker, token):
     else:
         raise ValueError(f"Failed to fetch data for ticker {ticker}. Check the ticker and token.")
 
-# Function to plot profit/loss
-def plot_profit(S, K, r, T, C, P):
-    stock_prices = np.linspace(0.5 * K, 1.5 * K, 500)
-    call_payoff = np.maximum(stock_prices - K, 0) - C
-    put_payoff = np.maximum(K - stock_prices, 0) - P
-    combined_payoff = call_payoff + put_payoff + stock_prices - K * np.exp(-r * T)
+# Function to fetch historical data and calculate volatility
+def fetch_volatility(ticker, token, N):
+    url = f"https://api.tiingo.com/tiingo/daily/{ticker}/prices?token={token}&startDate=2023-01-01"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        df = pd.DataFrame(data)
+        df['date'] = pd.to_datetime(df['date'])
+        df.set_index('date', inplace=True)
+        
+        # Calculate daily returns
+        df['return'] = df['adjClose'].pct_change()
+        df = df.dropna()  # Drop the first NaN value due to pct_change()
 
-    plt.figure(figsize=(5, 3))
-    plt.plot(stock_prices, call_payoff, label="Call Payoff", linestyle="--")
-    plt.plot(stock_prices, put_payoff, label="Put Payoff", linestyle="--")
-    plt.plot(stock_prices, combined_payoff, label="Arbitrage Payoff", linewidth=2)
-    plt.axhline(0, color='black', linestyle='--', linewidth=0.8)
-    plt.title("Profit/Loss Visualization")
-    plt.xlabel("Stock Price at Expiration")
-    plt.ylabel("Profit/Loss")
-    plt.legend()
-    plt.grid(True)
-    st.pyplot(plt)
-
-# Function to create a volatility heatmap
-def plot_volatility_heatmap(K_values, T_values, volatility_matrix):
-    plt.figure(figsize=(4, 4))
-    sns.heatmap(volatility_matrix, annot=True, fmt=".2f", xticklabels=T_values, yticklabels=K_values, cmap="coolwarm")
-    plt.title("Volatility Heatmap")
-    plt.xlabel("Time to Expiry (T)")
-    plt.ylabel("Strike Price (K)")
-    st.pyplot(plt)
+        # Calculate the rolling volatility (standard deviation of returns)
+        volatility = df['return'].rolling(window=N).std() * np.sqrt(252)  # Annualized volatility
+        return volatility[-1]  # Return the most recent volatility value
+    else:
+        raise ValueError(f"Failed to fetch data for ticker {ticker}. Check the ticker and token.")
 
 # Streamlit App
 def main():
@@ -169,29 +162,23 @@ def main():
 
     try:
         # Compute Call and Put values
-        computed_C, computed_P, pv_strike = put_call_parity(S, K, r, T, C if C != 0 else None, P if P != 0 else None)
+        computed_C, computed_P, pv_strike = put_call_parity(S, K, r, T, C, P)
+        st.write(f"Calculated Call Price: {computed_C:.2f}")
+        st.write(f"Calculated Put Price: {computed_P:.2f}")
+        st.write(f"Present Value of Strike (PV(K)): {pv_strike:.2f}")
 
-        # Display results
-        st.subheader("Computed Values:")
-        st.write(f"Call Price (C): {computed_C:.2f}")
-        st.write(f"Put Price (P): {computed_P:.2f}")
-        st.write(f"Present Value of Strike Price (K * e^(-rT)): {pv_strike:.2f}")
+        # Identify and display arbitrage opportunities
+        arbitrage_message = identify_arbitrage(S, K, r, T, computed_C, computed_P)
+        st.write(arbitrage_message)
 
-        # Identify Arbitrage
-        st.subheader("Arbitrage Analysis:")
-        st.write(identify_arbitrage(S, K, r, T, C if C != 0 else computed_C, P if P != 0 else computed_P))
+        # Fetch Volatility if N is provided
+        N = st.sidebar.number_input('N (Days for Volatility Calculation)', value=30, min_value=1, max_value=365)
+        if ticker:
+            volatility = fetch_volatility(ticker, "c8014c8227333b4647ff04d4378724f7345f3d4c", N)
+            st.write(f"Volatility (last {N} days): {volatility:.2%}")
 
-        # Plot Profit/Loss
-        plot_profit(S, K, r, T, C if C != 0 else computed_C, P if P != 0 else computed_P)
-
-        # Example Volatility Heatmap (using synthetic data for demonstration)
-        K_values = np.linspace(80, 120, 5)
-        T_values = np.linspace(0.5, 2, 5)
-        volatility_matrix = np.random.rand(5, 5) * 0.5  # Synthetic volatility data
-        plot_volatility_heatmap(K_values, T_values, volatility_matrix)
-
-    except ValueError as e:
-        st.error(f"Error: {e}")
+    except Exception as e:
+        st.error(str(e))
 
 if __name__ == "__main__":
     main()
