@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 import requests
-import pandas as pd
 
 # Function to calculate values based on Put-Call Parity
 def put_call_parity(S, K, r, T, C=None, P=None):
@@ -117,25 +116,6 @@ def fetch_live_price(ticker, token):
     else:
         raise ValueError(f"Failed to fetch data for ticker {ticker}. Check the ticker and token.")
 
-# Function to compute Historical Volatility (Realized Volatility)
-def compute_historical_volatility(ticker, token, days=30):
-    url = f"https://api.tiingo.com/tiingo/daily/{ticker}/prices?token={token}&startDate=2023-01-01"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        df = pd.DataFrame(data)
-        df['date'] = pd.to_datetime(df['date'])
-        df.set_index('date', inplace=True)
-        df['returns'] = df['close'].pct_change()
-        df.dropna(subset=['returns'], inplace=True)
-        
-        # Compute the daily volatility (standard deviation of returns)
-        daily_volatility = df['returns'].std()
-        annualized_volatility = daily_volatility * np.sqrt(252)  # Annualize the volatility assuming 252 trading days per year
-        return annualized_volatility
-    else:
-        raise ValueError(f"Failed to fetch data for ticker {ticker}. Check the ticker and token.")
-
 # Function to plot profit/loss
 def plot_profit(S, K, r, T, C, P):
     stock_prices = np.linspace(0.5 * K, 1.5 * K, 500)
@@ -157,62 +137,61 @@ def plot_profit(S, K, r, T, C, P):
 
 # Function to create a volatility heatmap
 def plot_volatility_heatmap(K_values, T_values, volatility_matrix):
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(4, 4))
     sns.heatmap(volatility_matrix, annot=True, fmt=".2f", xticklabels=T_values, yticklabels=K_values, cmap="coolwarm")
     plt.title("Volatility Heatmap")
     plt.xlabel("Time to Expiry (T)")
     plt.ylabel("Strike Price (K)")
-    plt.show()
+    st.pyplot(plt)
 
-# Main application
+# Streamlit App
 def main():
-    st.title("Option Pricing & Arbitrage")
-    
-    ticker = st.text_input("Enter Stock Ticker", "AAPL")
-    token = st.text_input("Enter Tiingo API Token", "c8014c8227333b4647ff04d4378724f7345f3d4c")
-    
-    # Fetch live stock price
-    if ticker and token:
+    st.title("Put-Call Parity and Arbitrage Tool")
+
+    # Sidebar for user inputs
+    S = st.sidebar.number_input('S (Stock Price)', value=100)
+    K = st.sidebar.number_input('K (Strike Price)', value=100)
+    r = st.sidebar.slider('r (Interest Rate)', min_value=0.0, max_value=0.2, value=0.05, step=0.005)
+    T = st.sidebar.slider('T (Time to Expiry)', min_value=0.1, max_value=5.0, value=1.0, step=0.1)
+    C = st.sidebar.number_input('C (Call Price)', value=0.0)
+    P = st.sidebar.number_input('P (Put Price)', value=0.0)
+
+    ticker = st.sidebar.text_input('Ticker (Optional)')
+    live_price = st.sidebar.checkbox('Use Live Price')
+
+    # If live price is checked and ticker is provided, fetch live stock price
+    if live_price and ticker:
         try:
-            stock_price = fetch_live_price(ticker, token)
-            st.write(f"Live stock price for {ticker}: ${stock_price:.2f}")
-        except Exception as e:
-            st.error(f"Error fetching stock price: {e}")
-    
-    st.header("Option Pricing")
-    
-    # Option parameters input
-    S = st.number_input("Enter Stock Price (S)", min_value=0.0, value=stock_price)
-    K = st.number_input("Enter Strike Price (K)", min_value=0.0, value=100.0)
-    r = st.number_input("Enter Risk-Free Interest Rate (r)", min_value=0.0, max_value=1.0, value=0.05)
-    T = st.number_input("Enter Time to Expiry (T) in years", min_value=0.0, value=0.5)
-    C = st.number_input("Enter Call Option Price (C)", min_value=0.0, value=10.0)
-    P = st.number_input("Enter Put Option Price (P)", min_value=0.0, value=10.0)
+            S = fetch_live_price(ticker, "c8014c8227333b4647ff04d4378724f7345f3d4c")
+            st.write(f"Live Stock Price for {ticker.upper()}: {S:.2f}")
+        except ValueError as e:
+            st.error(str(e))
 
-    # Put-Call Parity & Arbitrage Analysis
-    st.subheader("Put-Call Parity & Arbitrage")
-    parity_data = put_call_parity(S, K, r, T, C, P)
-    st.write(f"Call Option Price: {parity_data[0]:.2f}, Put Option Price: {parity_data[1]:.2f}, Present Value of Strike: {parity_data[2]:.2f}")
-    arbitrage_opportunity = identify_arbitrage(S, K, r, T, C, P)
-    st.text_area("Arbitrage Opportunity", arbitrage_opportunity, height=200)
+    try:
+        # Compute Call and Put values
+        computed_C, computed_P, pv_strike = put_call_parity(S, K, r, T, C if C != 0 else None, P if P != 0 else None)
 
-    # Profit-Loss Plot
-    plot_profit(S, K, r, T, C, P)
+        # Display results
+        st.subheader("Computed Values:")
+        st.write(f"Call Price (C): {computed_C:.2f}")
+        st.write(f"Put Price (P): {computed_P:.2f}")
+        st.write(f"Present Value of Strike Price (K * e^(-rT)): {pv_strike:.2f}")
 
-    # Volatility Heatmap
-    K_values = np.linspace(80, 120, 5)  # Strike prices range
-    T_values = np.linspace(0.1, 2.0, 5)  # Time to expiry in years
-    volatility_matrix = []
+        # Identify Arbitrage
+        st.subheader("Arbitrage Analysis:")
+        st.write(identify_arbitrage(S, K, r, T, C if C != 0 else computed_C, P if P != 0 else computed_P))
 
-    for K_val in K_values:
-        row = []
-        for T_val in T_values:
-            # Compute historical volatility
-            volatility = compute_historical_volatility(ticker, token)
-            row.append(volatility)
-        volatility_matrix.append(row)
+        # Plot Profit/Loss
+        plot_profit(S, K, r, T, C if C != 0 else computed_C, P if P != 0 else computed_P)
 
-    plot_volatility_heatmap(K_values, T_values, volatility_matrix)
+        # Example Volatility Heatmap (using synthetic data for demonstration)
+        K_values = np.linspace(80, 120, 5)
+        T_values = np.linspace(0.5, 2, 5)
+        volatility_matrix = np.random.rand(5, 5) * 0.5  # Synthetic volatility data
+        plot_volatility_heatmap(K_values, T_values, volatility_matrix)
+
+    except ValueError as e:
+        st.error(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
